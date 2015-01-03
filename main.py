@@ -17,6 +17,13 @@ from BeautifulSoup import BeautifulSoup
 from urlparse import urlparse
 import re
 import urllib2
+import sqlite3
+import time
+import sys
+
+
+def log(message):
+    sys.stderr.write(message + "\n")
 
 
 class Crawler:
@@ -24,6 +31,7 @@ class Crawler:
     def __init__(self):
         self.queue = Queue.Queue()
         self.was = set()
+        self.db = sqlite3.connect('db.db')
 
     def serve(self):
         while not self.queue.empty():
@@ -35,19 +43,21 @@ class Crawler:
             return
         self.was.add(task.url())
 
-        print("[>] {0}".format(task.url()))
+        log("[>] {0}".format(task.url()))
         try:
-
-            task.content = urllib2.urlopen(task.url())
-        except socks.GeneralProxyError as e:
-            print("[!] {0} : {1}".format(task.url(), e))
+            req = urllib2.Request(task.url(), headers={'User-Agent': 'Mozilla/5.0'})
+            task.content = urllib2.urlopen(req, timeout=1).read()
+            self.db.cursor().execute('insert into contents values (?, ?, ?)', (task.url().decode('utf-8'), time.time(), task.content.decode('utf-8')))
+            self.db.commit()
+        except Exception as e:
+            log("[!] {0} : {1}".format(task.url(), e))
             return
         self.parse(task)
 
     def parse(self, task):
         bs = BeautifulSoup(task.content)
         allA = bs.findAll('a', attrs={'href': re.compile(r'\.onion')})
-        print("[<] {0} : {1}".format(task.url(), len(allA)))
+        log("[<] {0} : {1}".format(task.url(), len(allA)))
         for a in allA:
             href = a['href']
             self.queue.put(Task(href))
@@ -70,8 +80,8 @@ class Task:
 
 def main():
     crawler = Crawler()
+    crawler.add_task(Task("http://torwikignoueupfm.onion/index.php?title=Main_Page"))
     crawler.add_task(Task("http://zqktlwi4fecvo6ri.onion/wiki/Main_Page"))
-    # crawler.add_task(Task("http://cyjabr4pfzupo7pg.onion/"))
     crawler.serve()
 
 
