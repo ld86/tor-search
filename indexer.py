@@ -81,7 +81,6 @@ class Indexer:
                 counter += 1
                 if counter % 10 == 0:
                     log("{0}", (counter))
-                    break
 
     def process(self, sa, inv, document):
             doc_id = sa.add(document)
@@ -99,7 +98,7 @@ class Document:
     def fill_fields(self):
         bs = BeautifulSoup(self.content)
         allA = bs.findAll('a', attrs={'href': re.compile(r'\.onion')})
-        self.title = bs.title.string if bs.title else ''
+        self.title = bs.title.string if bs.title and bs.title.string else ''
         self.links = ((a['href'], a.contents) for a in allA)
 
 
