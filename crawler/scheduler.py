@@ -1,7 +1,6 @@
 from urlparse import urlparse
 from time import time, sleep
-from Queue import Queue
-from threading import Thread
+from Queue import PriorityQueue
 from utils.logger import log
 
 
@@ -28,16 +27,19 @@ class Fetch(Task):
         return self.url.netloc()
 
 
-class Scheduler(Thread):
+class Scheduler:
 
     def __init__(self):
-        super(Scheduler, self).__init__()
-        self.task_queue = Queue()
+        self.task_queue = PriorityQueue()
 
     def add_task(self, task):
         self.task_queue(task)
 
-    def run(self):
-        while True:
-            log("Hello")
-            sleep(5)
+    def start(self):
+        while sleep(5) is None:
+            log(self.status())
+            task = self.task_queue.get()
+            print(task)
+
+    def status(self):
+        return "{0}".format(self.task_queue.qsize())
