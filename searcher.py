@@ -50,7 +50,7 @@ class Searcher:
         return result
 
     def get_guts(self, word):
-        return self.inv[word] if word in self.inv else None
+        return self.inv[word] if word in self.inv else []
 
 searcher = Searcher()
 
