@@ -2,7 +2,9 @@ import sqlite3
 import sys
 from BeautifulSoup import BeautifulSoup
 import re
-from urlparse import urlparse
+# from urlparse import urlparse
+import pickle
+import base64
 
 
 def hrefs(cursor):
@@ -15,8 +17,53 @@ def log(frmt, content):
     sys.stderr.write("\n")
 
 
-class SearchArchive:
-    pass
+class Archive:
+
+    def __init__(self, filename):
+        self.f = open(filename, 'wb')
+        self.line = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.f.close()
+
+    def add(self, document):
+        doc = {"id": self.line, "url": document.host}
+        self.f.write(base64.b64encode(pickle.dumps(doc)))
+        self.f.write("\n")
+        self.line += 1
+        return self.line - 1
+
+
+class Inverted:
+
+    def __init__(self, filename):
+        self.f = open(filename, 'wb')
+        self.index = {}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.write_to_file()
+        self.f.close()
+
+    def write_to_file(self):
+        keys = sorted(self.index.keys())
+        for key in keys:
+            doc = {"word": key, "hits": sorted(self.index[key])}
+            self.f.write(base64.b64encode(pickle.dumps(doc)))
+            self.f.write("\n")
+
+    def add(self, doc_id, content):
+        content = re.sub(r'\W', " ", " ".join(content))
+        for word in content.lower().split():
+            if word in self.index:
+                self.index[word].append(doc_id)
+            else:
+                self.index[word] = [doc_id]
 
 
 class Indexer:
@@ -28,19 +75,17 @@ class Indexer:
     def start(self):
         cursor = self.db.cursor()
         counter = 0
-        for row in cursor.execute("select * from {0}".format(self.table)):
-            self.process(Document(*row))
-            counter += 1
-            if counter % 10 == 0:
-                log("{0}", (counter))
-                break
+        with Archive("arch") as sa, Inverted("inv") as inv:
+            for row in cursor.execute("select * from {0}".format(self.table)):
+                self.process(sa, inv, Document(*row))
+                counter += 1
+                if counter % 10 == 0:
+                    log("{0}", (counter))
+                    break
 
-    def process(sefl, document):
-        host = urlparse(document.host)
-        print(document.title)
-        print(host)
-        for link in document.links:
-            print(urlparse(link[0]))
+    def process(self, sa, inv, document):
+            doc_id = sa.add(document)
+            inv.add(doc_id, [document.title])
 
 
 class Document:
