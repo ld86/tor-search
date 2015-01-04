@@ -4,6 +4,10 @@
         <form action="/">
             <input type="text" name="q">
         </form>
-        {{ result }}
+        {% for link in result %}
+            <div>
+                <a href="{{ link }}">{{ link }}</a>
+            </div>
+        {% endfor %}
     <body/>
 </html>
